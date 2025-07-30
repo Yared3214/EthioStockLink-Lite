@@ -1,16 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
   FlatList,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
 import { useIpoCompanies } from "../hooks/useIpoCompanies";
+
 
 
 interface IPOCompany {
@@ -32,13 +36,58 @@ interface IPOCompany {
 }
 
 export default function IPOScreen({ navigation }: any) {
+  const [slideAnim] = useState(new Animated.Value(300)); // start off-screen
+  const [popupVisible, setPopupVisible] = useState(false);
+  const [company, setCompany] = useState({});
   const { companies, loading, error } = useIpoCompanies();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [buyPrice, setBuyPrice] = useState("120");
+  const [buyPrice, setBuyPrice] = useState(0);
   const [shares, setShares] = useState(20);
+  const [balance, setBalance] = useState(0);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        const headers = { Authorization: `Bearer ${token}` };
+        console.log(token)
+        
+        const balanceRes = await fetch('https://ethiostocklink-lite-1.onrender.com/api/user/balance', { headers });
+  
+        const balanceData = await balanceRes.json();
+        setBalance(balanceData)
+  
+        setBalance(balanceData.balance);
+      } catch (error) {
+        Alert.alert("Error", "Failed to fetch balance data.");
+      } finally {
+      }
+    };
+  
+    fetchData();
+
+  }, []);
 
   const increaseShares = () => setShares(shares + 1);
   const decreaseShares = () => setShares(shares > 1 ? shares - 1 : 1);
+
+  const showPopup = () => {
+    setPopupVisible(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+      easing: Easing.out(Easing.ease),
+    }).start();
+  };
+  
+  const hidePopup = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300,
+      duration: 300,
+      useNativeDriver: true,
+      easing: Easing.in(Easing.ease),
+    }).start(() => setPopupVisible(false));
+  };
 
   const renderItem = ({ item }: { item: IPOCompany }) => (
     <View style={styles.card}>
@@ -55,7 +104,9 @@ export default function IPOScreen({ navigation }: any) {
       <TouchableOpacity
         style={styles.buyButton}
         onPress={() => {
-          setModalVisible(true)
+          showPopup();
+          setCompany(item);
+          setBuyPrice(item.currentPrice)
         }}
       >
         <LinearGradient
@@ -67,65 +118,7 @@ export default function IPOScreen({ navigation }: any) {
           <Text style={styles.buyText}>Buy Shares</Text>
         </LinearGradient>
       </TouchableOpacity>
-      <Modal
-        animationType="slide"
-        transparent
-        visible={ modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPressOut={() => setModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            {/* Conditional rendering for Buy or Sell content */}
-              <View style={styles.buySection}>
-                <Text style={styles.buyTitle}>Buy ETL?</Text>
-                <Text style={styles.label}>PRICE</Text>
-                <Text style={styles.input}>120</Text>
-                <Text style={styles.minPrice}>Minimum price : 100</Text>
-      
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <View style={styles.sharesContainer}>
-                    <Text style={styles.label}>SHARES</Text>
-                    <View style={styles.selector}>
-                      <TouchableOpacity style={styles.side} onPress={decreaseShares}>
-                        <Text style={styles.sideText}>−</Text>
-                      </TouchableOpacity>
-                      <View style={styles.middle}>
-                        <Text style={styles.value}>{shares}</Text>
-                      </View>
-                      <TouchableOpacity style={styles.side} onPress={increaseShares}>
-                        <Text style={styles.sideText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View>
-                    <Text style={styles.label}>TOTAL PRICE</Text>
-                    <Text style={styles.totalPrice}>{(parseFloat(buyPrice) * shares).toFixed(2)} ETB</Text>
-                  </View>
-                </View>
-      
-                <View style={styles.quickInfo}>
-                  <Text style={styles.quickInfoText}>Available balance: 288,648.43 ETB</Text>
-                  <Text style={styles.quickInfoText}>Shares owned: 0</Text>
-                </View>
-      
-                <LinearGradient
-                  colors={['#00FFA3', '#0085FF']}
-                  style={styles.buyConfirmButton}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <TouchableOpacity>
-                    <Text style={styles.buySellText}>Buy</Text>
-                  </TouchableOpacity>
-                </LinearGradient>
-              </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+
     </View>
   );
 
@@ -168,6 +161,60 @@ export default function IPOScreen({ navigation }: any) {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ paddingBottom: 80 }}
       />
+      {popupVisible && (
+  <TouchableOpacity
+    activeOpacity={1}
+    style={styles.backdrop}
+    onPressOut={hidePopup}
+  >
+    <Animated.View style={[styles.popupContainer, { transform: [{ translateY: slideAnim }] }]}>
+      {/* Your Buy Section goes here */}
+      <View style={styles.buySection}>
+        <Text style={styles.buyTitle}>Buy {company.symbol}</Text>
+        <Text style={styles.label}>PRICE</Text>
+        <Text style={styles.input}>{company.currentPrice}</Text>
+        <Text style={styles.minPrice}>Minimum price : 100</Text>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <View style={styles.sharesContainer}>
+            <Text style={styles.label}>SHARES</Text>
+            <View style={styles.selector}>
+              <TouchableOpacity style={styles.side} onPress={decreaseShares}>
+                <Text style={styles.sideText}>−</Text>
+              </TouchableOpacity>
+              <View style={styles.middle}>
+                <Text style={styles.value}>{shares}</Text>
+              </View>
+              <TouchableOpacity style={styles.side} onPress={increaseShares}>
+                <Text style={styles.sideText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View>
+            <Text style={styles.label}>TOTAL PRICE</Text>
+            <Text style={styles.totalPrice}>{(buyPrice * shares).toFixed(2)} ETB</Text>
+          </View>
+        </View>
+
+        <View style={styles.quickInfo}>
+          <Text style={styles.quickInfoText}>Available balance: {balance}</Text>
+          <Text style={styles.quickInfoText}>Shares owned: 0</Text>
+        </View>
+
+        <LinearGradient
+          colors={['#00FFA3', '#0085FF']}
+          style={styles.buyConfirmButton}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <TouchableOpacity>
+            <Text style={styles.buySellText}>Buy</Text>
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+    </Animated.View>
+  </TouchableOpacity>
+)}
     </View>
   );
 }
@@ -237,18 +284,28 @@ const styles = StyleSheet.create({
     color: "#000",
     fontWeight: "600",
   },
-    modalOverlay: {
-      flex: 1,
-      justifyContent: 'flex-end',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
-    modalContent: {
-      backgroundColor: '#1A1D29',
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      padding: 16,
-      maxHeight: '80%',
-    },
+  popupContainer: {
+    backgroundColor: '#1A1D29',           // Matches your dark theme
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 32,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dimmed background
+    justifyContent: 'flex-end',
+    zIndex: 999,                           // Ensure it's above other content
+  },
     buySection: {
       backgroundColor: "#0f114b",
       borderRadius: 16,

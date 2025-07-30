@@ -1,28 +1,90 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
-import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, FlatList, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function TradeDetailsScreen() {
+  const route = useRoute();
+  const { companyId } = route.params || {};
+
   const [buyPrice, setBuyPrice] = useState("120");
   const [sellPrice, setSellPrice] = useState("400");
   const [shares, setShares] = useState(20);
   const [active, setActive] = useState('buy');
   const [modalVisible, setModalVisible] = useState(false);
+  const [stockData, setStockData] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const stockData = [
-    { id: "1", owner: "User Name", price: "325.2 ETB", shares: 4 },
-    { id: "2", owner: "User Name", price: "330 ETB", shares: 6 },
-    { id: "3", owner: "User Name", price: "335 ETB", shares: 9 },
-    { id: "4", owner: "User Name", price: "336 ETB", shares: 3 },
-    { id: "5", owner: "User Name", price: "340.32 ETB", shares: 11 },
-    { id: "6", owner: "User Name", price: "400.2 ETB", shares: 4 },
-    { id: "7", owner: "User Name", price: "420 ETB", shares: 6 },
-    { id: "8", owner: "User Name", price: "450.2 ETB", shares: 9 },
-  ];
+  useEffect(() => {
+    const fetchOrderBook = async () => {
+      try {
+        setLoading(true)
+        const token = await AsyncStorage.getItem('accessToken');
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const response = await fetch(`https://ethiostocklink-lite-1.onrender.com/api/tread/orderbook/${companyId}`, { headers });
+        const data = await response.json();
+
+        // Merge and format bids and asks
+        const formattedOrders = [
+          ...data.bids.flatMap((bid: any) =>
+            bid.orders.map((order: any) => ({
+              type: 'Buy',
+              id: order.id,
+              price: bid.price,
+              shares: order.quantity,
+              createdAt: order.createdAt,
+            }))
+          ),
+          ...data.asks.flatMap((ask: any) =>
+            ask.orders.map((order: any) => ({
+              type: 'Sell',
+              id: order.id,
+              price: ask.price,
+              shares: order.quantity,
+              createdAt: order.createdAt,
+            }))
+          ),
+        ];
+
+        setStockData(formattedOrders);
+      } catch (err: any) {
+        setError('Failed to fetch order book');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderBook();
+  }, [companyId]);
 
   const increaseShares = () => setShares(shares + 1);
   const decreaseShares = () => setShares(shares > 1 ? shares - 1 : 1);
+
+  if (loading) {
+    return (
+            <SafeAreaView style={[
+                       styles.container,
+                      { justifyContent: "center", alignItems: "center" },
+                    ]}>
+              <ActivityIndicator color="#00E1D9" size="large" style={{ marginTop: 100 }} />
+            </SafeAreaView>
+          );
+  }
+  
+  if (error) {
+    return (
+      <SafeAreaView style={[
+                 styles.container,
+                { justifyContent: "center", alignItems: "center" },
+              ]}>
+        <Text style={{ color: 'red', textAlign: 'center', marginTop: 20 }}>{error}</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -31,25 +93,27 @@ export default function TradeDetailsScreen() {
         <Text style={styles.ticker}>ETL</Text>
         <Ionicons name="search" size={20} color="#fff" style={styles.searchIcon} />
       </View>
-
+      {stockData.length === 0 ?
+      <Text style={{ color: '#ccc', textAlign: 'center', marginTop: 40 }}>No active orders at the moment.</Text> : 
       <FlatList
-        data={stockData}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderText}>Stock Owner</Text>
-            <Text style={styles.tableHeaderText}>Price</Text>
-            <Text style={styles.tableHeaderText}>Shares</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCell}>{item.owner}</Text>
-            <Text style={styles.tableCell}>{item.price}</Text>
-            <Text style={styles.tableCell}>{item.shares}</Text>
-          </View>
-        )}
-      />
+      data={stockData}
+      keyExtractor={(item) => item.id.toString()}
+      ListHeaderComponent={
+        <View style={styles.tableHeader}>
+          <Text style={styles.tableHeaderText}>Type</Text>
+          <Text style={styles.tableHeaderText}>Price</Text>
+          <Text style={styles.tableHeaderText}>Shares</Text>
+        </View>
+      }
+      renderItem={({ item }) => (
+        <View style={styles.tableRow}>
+          <Text style={[styles.tableCell, { color: item.type === 'Buy' ? 'green' : 'red' }]}>{item.type}</Text>
+          <Text style={styles.tableCell}>{item.price}</Text>
+          <Text style={styles.tableCell}>{item.shares}</Text>
+        </View>
+      )}
+    />}
+      
       <View style={styles.buySellContainer}>
         {active === 'sell' ?
         <TouchableOpacity style={styles.sellButton} onPress={() => {
@@ -256,29 +320,29 @@ const styles = StyleSheet.create({
     top: 10,
   },
   tableHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomColor: "#333",
+    flexDirection: 'row',
+    paddingVertical: 10,
     borderBottomWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#1B2246',
   },
   tableHeaderText: {
-    color: "#bbb",
-    fontWeight: "bold",
     flex: 1,
-    textAlign: "center",
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   tableRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
     paddingVertical: 8,
-    borderBottomColor: "#222",
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
+    borderColor: '#444',
+    backgroundColor: '#0D1020',
   },
   tableCell: {
-    color: "#fff",
     flex: 1,
-    textAlign: "center",
+    color: '#eee',
+    textAlign: 'center',
   },
   buySellContainer: {
     flexDirection: "row",

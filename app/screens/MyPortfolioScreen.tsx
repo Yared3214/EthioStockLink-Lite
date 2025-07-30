@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Dimensions, Easing, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
 import { LineChart } from 'react-native-chart-kit';
 
 const API_BASE = 'https://ethiostocklink-lite-1.onrender.com/api';
@@ -17,6 +18,30 @@ const PortfolioScreen = () => {
   const [loading, setLoading] = useState(true);
   const [performanceData, setPerformanceData] = useState([]);
   const [performanceLabels, setPerformanceLabels] = useState([]);
+  const [amount, setAmount] = useState('');
+  const [visible, setVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden
+
+  const showPopup = () => {
+    setVisible(true);
+    Animated.timing(slideAnim, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  const hidePopup = () => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => setVisible(false));
+  };
+  
+
 
   const chartConfig = {
     backgroundGradientFrom: "#1E1E1E",
@@ -116,6 +141,40 @@ const PortfolioScreen = () => {
     }
   };
   
+  const handleDeposit = async () => {
+    const token = await AsyncStorage.getItem('accessToken');
+
+    if (!amount || isNaN(Number(amount))) {
+      Alert.alert('Invalid', 'Enter a valid amount');
+      return;
+    }
+  
+    setLoading(true);
+  
+    try {
+      const res = await fetch('https://ethiostocklink-lite-1.onrender.com/api/payment/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+        body: JSON.stringify({ amount: Number(amount) }),
+      });
+  
+      const json = await res.json();
+  
+      if (res.ok && json.data?.checkout_url) {
+        hidePopup();
+        Linking.openURL(json.data.checkout_url);
+        Alert.alert('Success', 'Redirecting to payment...');
+      } else {
+        Alert.alert('Error', json.message || 'Failed to initiate deposit');
+        console.log(json)
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
 
   const handleLogout = async () => {
     try {
@@ -136,6 +195,11 @@ const PortfolioScreen = () => {
   }
 
   return (
+    <KeyboardAvoidingView
+  style={{ flex: 1 }}
+  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+>
+    <View style={{ flex: 1 }}>
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -154,7 +218,7 @@ const PortfolioScreen = () => {
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.buttonText}>Withdraw</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={showPopup}>
             <Text style={styles.buttonText}>Deposit</Text>
           </TouchableOpacity>
         </View>
@@ -257,6 +321,45 @@ const PortfolioScreen = () => {
   )}
 </View>
     </ScrollView>
+    {visible && (
+  <View style={styles.overlay}>
+    <TouchableOpacity style={styles.backdropTouchable} onPress={hidePopup} />
+    <Animated.View
+      style={[
+        styles.popupContainer,
+        {
+          transform: [
+            {
+              translateY: slideAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [300, 0], // slide up from 300px below
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <Text style={styles.label}>Enter Deposit Amount</Text>
+      <TextInput
+        value={amount}
+        onChangeText={setAmount}
+        placeholder="e.g. 100"
+        keyboardType="numeric"
+        style={styles.input}
+      />
+
+      <TouchableOpacity
+        style={[styles.confirmButton, loading && { opacity: 0.6 }]}
+        onPress={handleDeposit}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>{loading ? 'Processing...' : 'Confirm Deposit'}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  </View>
+)}
+    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -321,9 +424,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
   },
   section: {
     marginTop: 24,
@@ -401,4 +501,41 @@ const styles = StyleSheet.create({
     borderColor: '#1F2A44',
     marginTop: 24,
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  popupContainer: {
+    backgroundColor: '#1C1F30',
+    padding: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  backdropTouchable: {
+    flex: 1,
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    color: '#000',
+    marginBottom: 16,
+  },
+  label: {
+    color: '#fff',
+    marginBottom: 8,
+    fontWeight: 'bold',
+  },
+  confirmButton: {
+    backgroundColor: '#00BFFF',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  
 });
