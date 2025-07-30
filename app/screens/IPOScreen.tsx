@@ -41,8 +41,9 @@ export default function IPOScreen({ navigation }: any) {
   const [company, setCompany] = useState({});
   const { companies, loading, error } = useIpoCompanies();
   const [buyPrice, setBuyPrice] = useState(0);
-  const [shares, setShares] = useState(20);
+  const [shares, setShares] = useState(1);
   const [balance, setBalance] = useState(0);
+  const [buyLoading, SetBuyLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,6 +88,41 @@ export default function IPOScreen({ navigation }: any) {
       useNativeDriver: true,
       easing: Easing.in(Easing.ease),
     }).start(() => setPopupVisible(false));
+  };
+
+  const handleBuy = async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      SetBuyLoading(true);
+
+      const response = await fetch('https://ethiostocklink-lite-1.onrender.com/api/companies/stock/buy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Optionally add Authorization header if required:
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          companyId: company.id,
+          quantity: shares
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.log(data);
+        throw new Error(data.error.message || 'Something went wrong.');
+      }
+
+      Alert.alert('Success', `Successfully bought ${shares} shares of ${company.symbol}`);
+      // Optionally update state like balance or owned shares
+
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to buy stock');
+    } finally {
+      SetBuyLoading(false);
+    }
   };
 
   const renderItem = ({ item }: { item: IPOCompany }) => (
@@ -170,48 +206,73 @@ export default function IPOScreen({ navigation }: any) {
     <Animated.View style={[styles.popupContainer, { transform: [{ translateY: slideAnim }] }]}>
       {/* Your Buy Section goes here */}
       <View style={styles.buySection}>
-        <Text style={styles.buyTitle}>Buy {company.symbol}</Text>
-        <Text style={styles.label}>PRICE</Text>
-        <Text style={styles.input}>{company.currentPrice}</Text>
-        <Text style={styles.minPrice}>Minimum price : 100</Text>
+      <Text style={styles.buyTitle}>Buy {company.symbol}</Text>
+      <Text style={styles.label}>PRICE</Text>
+      <Text style={styles.input}>{company.currentPrice}</Text>
+      <Text style={styles.minPrice}>Minimum Stock : {company.minimumStockAmount}</Text>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <View style={styles.sharesContainer}>
-            <Text style={styles.label}>SHARES</Text>
-            <View style={styles.selector}>
-              <TouchableOpacity style={styles.side} onPress={decreaseShares}>
-                <Text style={styles.sideText}>−</Text>
-              </TouchableOpacity>
-              <View style={styles.middle}>
-                <Text style={styles.value}>{shares}</Text>
-              </View>
-              <TouchableOpacity style={styles.side} onPress={increaseShares}>
-                <Text style={styles.sideText}>+</Text>
-              </TouchableOpacity>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <View style={styles.sharesContainer}>
+          <Text style={styles.label}>SHARES</Text>
+          <View style={styles.selector}>
+            <TouchableOpacity style={styles.side} onPress={decreaseShares}>
+              <Text style={styles.sideText}>−</Text>
+            </TouchableOpacity>
+            <View style={styles.middle}>
+              <Text style={styles.value}>{shares}</Text>
             </View>
-          </View>
-          <View>
-            <Text style={styles.label}>TOTAL PRICE</Text>
-            <Text style={styles.totalPrice}>{(buyPrice * shares).toFixed(2)} ETB</Text>
+            <TouchableOpacity style={styles.side} onPress={increaseShares}>
+              <Text style={styles.sideText}>+</Text>
+            </TouchableOpacity>
           </View>
         </View>
-
-        <View style={styles.quickInfo}>
-          <Text style={styles.quickInfoText}>Available balance: {balance}</Text>
-          <Text style={styles.quickInfoText}>Shares owned: 0</Text>
+        <View>
+          <Text style={styles.label}>TOTAL PRICE</Text>
+          <Text style={styles.totalPrice}>{(buyPrice * shares).toFixed(2)} ETB</Text>
         </View>
-
-        <LinearGradient
-          colors={['#00FFA3', '#0085FF']}
-          style={styles.buyConfirmButton}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <TouchableOpacity>
-            <Text style={styles.buySellText}>Buy</Text>
-          </TouchableOpacity>
-        </LinearGradient>
       </View>
+
+      <View style={styles.quickInfo}>
+        <Text style={styles.quickInfoText}>Available balance: {balance}</Text>
+        <Text style={styles.quickInfoText}>Shares owned: 0</Text>
+      </View>
+
+      <TouchableOpacity
+  onPress={() =>
+    Alert.alert(
+      'Confirm Purchase',
+      `Are you sure you want to buy ${shares} shares of ${company.symbol}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Buy',
+          onPress: handleBuy
+        }
+      ],
+      { cancelable: true }
+    )
+  }
+  disabled={loading}
+  style={{ alignItems: 'center' }}
+>
+      <LinearGradient
+        colors={['#00FFA3', '#0085FF']}
+        style={styles.buyConfirmButton}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        
+  {buyLoading ? (
+    <ActivityIndicator color="white" />
+  ) : (
+    <Text style={styles.buySellText}>Buy</Text>
+  )}
+  </LinearGradient>
+</TouchableOpacity>
+    </View>
     </Animated.View>
   </TouchableOpacity>
 )}
