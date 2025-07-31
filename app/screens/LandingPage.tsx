@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -8,7 +8,7 @@ type Props = {
 };
 
 export default function LandingPageScreen({ goToSignUp }: Props) {
-  const navigation = useNavigation();
+  const route = useRouter();
   return (
     <View style={styles.container}>
       <ImageBackground
@@ -39,7 +39,7 @@ export default function LandingPageScreen({ goToSignUp }: Props) {
           </Text>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('login')}>
+            <TouchableOpacity style={styles.button} onPress={() => route.replace('/(auth)/LoginScreen')}>
               <LinearGradient colors={["#147efb", "#0a60dc"]} style={styles.gradient}>
                 <Text style={styles.buttonText}>Login</Text>
               </LinearGradient>

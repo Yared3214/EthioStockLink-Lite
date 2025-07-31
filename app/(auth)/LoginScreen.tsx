@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -11,53 +11,68 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
 
   const onSignInPress = async () => {
-    if (!emailAddress || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
-      return;
+    let valid = true;
+  
+    setEmailError('');
+    setPasswordError('');
+  
+    if (!emailAddress.trim()) {
+      setEmailError('Email or phone number is required.');
+      valid = false;
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isEmail = emailRegex.test(emailAddress);
+      if (!isEmail) {
+        setEmailError('Please enter a valid email.');
+        valid = false;
+      }
     }
-
+  
+    if (!password.trim()) {
+      setPasswordError('Password is required.');
+      valid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      valid = false;
+    }
+  
+    if (!valid) return;
+  
     setLoading(true);
-
+  
     try {
       const response = await fetch('https://ethiostocklink-lite-1.onrender.com/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: emailAddress,
-          password: password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailAddress, password }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
-
+  
       const { accessToken, refreshToken } = data;
-
-      // Save token to storage (you can use SecureStore for more security)
       await AsyncStorage.setItem('accessToken', accessToken);
       await AsyncStorage.setItem('refreshToken', refreshToken);
-
-      // Navigate to main/home screen
-      // navigation.navigate('Home'); Adjust route name to your app structure
-      router.replace('/')
-
+  
+      router.replace('/');
     } catch (error) {
-      Alert.alert('Login Failed', error.message);
-      console.error('Login Failed', error.message)
+      setPasswordError(error.message); // Show API error under password
     } finally {
       setLoading(false);
     }
-  };
+  };  
+  
 
   return (
-    <View style={{ backgroundColor: '#0a0f2c', flex: 1, padding: 20 }}>
+    <View style={{ backgroundColor: '#0a0f2c', flex: 1, padding:20 }}>
       <Text style={styles.logo}>EthioStockLink <Text style={styles.logoLite}>Lite</Text></Text>
       <View style={styles.container}>
         <View style={styles.card}>
@@ -66,16 +81,19 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>Enter your email and password to sign in</Text>
           </View>
 
-          <Text style={styles.label}>Email / Phone Number</Text>
+          <Text style={styles.label}>Email</Text>
+          <View style={{marginBottom: 15}}>
           <TextInput
             style={styles.input}
-            placeholder="Your email or phone number"
+            placeholder="Your email"
             placeholderTextColor="#888"
             value={emailAddress}
             onChangeText={setEmailAddress}
             autoCapitalize="none"
             keyboardType="email-address"
           />
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+          </View>
 
           <Text style={styles.label}>Password</Text>
           <View style={styles.passwordContainer}>
@@ -92,7 +110,7 @@ export default function LoginScreen() {
               <Image source={require('../../assets/eye.png')} style={{ width: 20, height: 20 }} />
             </TouchableOpacity>
           </View>
-
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           <TouchableOpacity>
             <Text style={styles.forgotPassword}>Forgot?</Text>
           </TouchableOpacity>
@@ -133,6 +151,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 30,
     fontWeight: '700',
+    marginTop: 20,
   },
   logoLite: {
     color: '#f4d35e',
@@ -164,8 +183,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     color: '#fff',
     padding: 15,
-    marginBottom: 15,
+    marginBottom: 5,
   },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 5,
+  },
+  
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',

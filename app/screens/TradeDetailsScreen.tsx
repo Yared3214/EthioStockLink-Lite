@@ -3,11 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function TradeDetailsScreen() {
   const route = useRoute();
-  const { companyId } = route.params || {};
+  const { companyId, price, minStockAmount, symbol } = route.params || {};
 
   const [buyPrice, setBuyPrice] = useState("120");
   const [sellPrice, setSellPrice] = useState("400");
@@ -17,6 +17,7 @@ export default function TradeDetailsScreen() {
   const [stockData, setStockData] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [buyAndSellLoading, setBuyAndSellLoading] = useState(false);
 
   useEffect(() => {
     const fetchOrderBook = async () => {
@@ -63,6 +64,53 @@ export default function TradeDetailsScreen() {
 
   const increaseShares = () => setShares(shares + 1);
   const decreaseShares = () => setShares(shares > 1 ? shares - 1 : 1);
+
+  const placeOrder = async (type: 'BUY' | 'SELL') => {
+    setBuyAndSellLoading(true);
+    const token = await AsyncStorage.getItem('accessToken');
+
+    try {
+      const res = await fetch('https://ethiostocklink-lite-1.onrender.com/api/tread/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // include access token if needed
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          companyId: companyId,
+          quantity: shares,
+          type,
+          price: price, // Or a custom price field
+        }),
+      });
+  
+      const data = await res.json();
+  
+      if (res.ok) {
+        Alert.alert(`${type} Order Placed`, `Your ${type.toLowerCase()} order (#${data.id}) is now pending.`);
+      } else {
+        Alert.alert('Error', data.error.message || 'Something went wrong.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error or server unavailable.');
+    } finally {
+      setBuyAndSellLoading(false);
+    }
+  };
+
+  const confirmOrder = (type: 'BUY' | 'SELL') => {
+    Alert.alert(
+      `Confirm ${type} Order`,
+      `Do you want to place a ${type.toLowerCase()} order for ${shares} shares of ${symbol}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: `Place Order`, onPress: () => placeOrder(type) },
+      ],
+      { cancelable: true }
+    );
+  };
+  
 
   if (loading) {
     return (
@@ -198,8 +246,8 @@ export default function TradeDetailsScreen() {
         <View style={styles.buySection}>
           <Text style={styles.buyTitle}>Buy ETL?</Text>
           <Text style={styles.label}>PRICE</Text>
-          <Text style={styles.input}>120</Text>
-          <Text style={styles.minPrice}>Minimum price : 100</Text>
+          <Text style={styles.input}>{price}</Text>
+          <Text style={styles.minPrice}>Minimum Shares : {minStockAmount}</Text>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <View style={styles.sharesContainer}>
@@ -218,7 +266,7 @@ export default function TradeDetailsScreen() {
             </View>
             <View>
               <Text style={styles.label}>TOTAL PRICE</Text>
-              <Text style={styles.totalPrice}>{(parseFloat(buyPrice) * shares).toFixed(2)} ETB</Text>
+              <Text style={styles.totalPrice}>{(price * shares).toFixed(2)} ETB</Text>
             </View>
           </View>
 
@@ -227,16 +275,21 @@ export default function TradeDetailsScreen() {
             <Text style={styles.quickInfoText}>Shares owned: 0</Text>
           </View>
 
+          <TouchableOpacity
+              onPress={() => confirmOrder('BUY')}
+              disabled={loading}
+              style={{ alignItems: 'center' }}
+            >
           <LinearGradient
             colors={['#00FFA3', '#0085FF']}
             style={styles.buyConfirmButton}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <TouchableOpacity>
-              <Text style={styles.buySellText}>Buy</Text>
-            </TouchableOpacity>
+            
+              {buyAndSellLoading ? <ActivityIndicator color="white" /> : <Text style={styles.buySellText}>Buy</Text>}
           </LinearGradient>
+          </TouchableOpacity>
         </View>
       ) : (
         // You can insert the Sell Section here
@@ -244,8 +297,8 @@ export default function TradeDetailsScreen() {
         <Text style={styles.buyTitle}>Sell ETL?</Text>
 
         <Text style={styles.label}>PRICE</Text>
-        <Text style={styles.input}>400</Text>
-        <Text style={styles.minPrice}>Minimum price : 100</Text>
+        <Text style={styles.input}>{price}</Text>
+        <Text style={styles.minPrice}>Minimum Shares : {minStockAmount}</Text>
 
         <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16,}}>
         <View style={styles.sharesContainer}>
@@ -264,7 +317,7 @@ export default function TradeDetailsScreen() {
         </View>
         <View>
             <Text style={styles.label}>TOTAL PRICE</Text>
-            <Text style={styles.totalPrice}>{(parseFloat(sellPrice) * shares).toFixed(2)} ETB</Text>
+            <Text style={styles.totalPrice}>{(price * shares).toFixed(2)} ETB</Text>
           </View>
         </View>
 
@@ -275,16 +328,21 @@ export default function TradeDetailsScreen() {
           <Text style={styles.quickInfoText}>Shares owned: 20</Text>
         </View>
 
+        <TouchableOpacity
+          onPress={() => confirmOrder('SELL')}
+          disabled={loading}
+          style={{ alignItems: 'center', marginTop: 12 }}
+        >
         <LinearGradient
                           colors={['#FF3C5F', '#6528F7']} // pink to purple-ish
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={styles.buyConfirmButton}
                         >
-        <TouchableOpacity>
-          <Text style={styles.buySellText}>Sell</Text>
-        </TouchableOpacity>
+        
+          {buyAndSellLoading ? <ActivityIndicator color="white" /> : <Text style={styles.buySellText}>Sell</Text>}
         </LinearGradient>
+        </TouchableOpacity>
       </View>
       )}
     </View>

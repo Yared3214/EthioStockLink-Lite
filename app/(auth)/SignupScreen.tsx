@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -19,24 +18,49 @@ type Props = {
 
 const SignUpScreen = ({ goToUserDetail }: Props) => {
   const router = useRouter()
-  const navigation = useNavigation()
   const { setData } = useRegistration();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
+
+  const validateInputs = () => {
+    const newErrors: typeof errors = {};
+  
+    if (!name.trim()) {
+      newErrors.name = 'Name is required.';
+    } else if (name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters.';
+    }
+  
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  
+    if (!email.trim()) {
+      newErrors.email = 'Email is required.';
+    } else if (!isEmail) {
+      newErrors.email = 'Enter a valid email.';
+    }
+  
+    if (!password) {
+      newErrors.password = 'Password is required.';
+    } else if (password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters.';
+    }
+  
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
 
   const onNext = () => {
-    setData({
-      name,
-      email,
-      password
-    });
-    // Scroll to next screen
-    // scrollViewRef.current?.scrollTo({ x: width, animated: true });
+    if (!validateInputs()) return;
+  
+    setData({ name, email, password });
     goToUserDetail();
   };
+  
   
   return (
     <SafeAreaView style={{backgroundColor: '#030a24', flex: 1}}>
@@ -60,15 +84,17 @@ const SignUpScreen = ({ goToUserDetail }: Props) => {
           value={name}
           onChangeText={setName}
         />
+        {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-        <Text style={styles.label}>Email / Phone number</Text>
+        <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
-          placeholder="Your email or phone"
+          placeholder="Your email"
           placeholderTextColor="#aaa"
           value={email}
           onChangeText={setEmail}
         />
+        {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
         <Text style={styles.label}>Password</Text>
         <TextInput
@@ -79,6 +105,7 @@ const SignUpScreen = ({ goToUserDetail }: Props) => {
           value={password}
           onChangeText={setPassword}
         />
+        {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
         {/* Remember Me Toggle */}
         <View style={styles.rememberContainer}>
@@ -162,6 +189,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1c2b4a',
   },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  
   rememberContainer: {
     flexDirection: 'row',
     alignItems: 'center',

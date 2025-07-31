@@ -31,7 +31,12 @@ export default function ExchangeScreen() {
         >
           <TouchableOpacity
             style={styles.exchangeButton}
-            onPress={() => navigation.navigate('trade-detail', { companyId: item.id })}
+            onPress={() => navigation.navigate('trade-detail', { 
+              companyId: item.id, 
+              price: item.currentPrice, 
+              minStockAmount: item.minimumStockAmount,
+              symbol: item.symbol,
+              })}
           >
             <Text style={styles.buttonText}>Exchange</Text>
           </TouchableOpacity>
