@@ -1,3 +1,4 @@
+import { fetchCompanyPerformance, fetchIPOCompanies, fetchTransactionHistory, fetchUserBalance, fetchUserHoldings } from '@/api/services';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -67,79 +68,83 @@ const PortfolioScreen = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem('accessToken');
-        const headers = { Authorization: `Bearer ${token}` };
-  
-        const [balanceRes, holdingsRes, transactionsRes, watchlistRes] = await Promise.all([
-          fetch(`${API_BASE}/user/balance`, { headers }),
-          fetch(`${API_BASE}/user/stocks`, { headers }),
-          fetch(`${API_BASE}/transactions/history`, { headers }),
-          fetch(`${API_BASE}/companies/ipo?page=1`, { headers }), // IPO list with volume
-        ]);
-  
-        const balanceData = await balanceRes.json();
-        const holdingsData = await holdingsRes.json();
-        const transactionsData = await transactionsRes.json();
-        const watchlistData = await watchlistRes.json();
-  
-        setBalance(balanceData.balance);
-        setHoldings(holdingsData.stocks || []);
-        setTransactions(transactionsData || []);
-        console.log(transactionsData)
-  
-        // Pick most actively traded companies (sort by volume, take top 5)
-        const sortedByVolume = (watchlistData.companies || [])
-          .filter(c => c.volume !== null) // ignore if volume is missing
-          .sort((a, b) => b.volume - a.volume)
-          .slice(0, 5);
-  
-        setWatchlist(sortedByVolume);
-      } catch (error) {
-        Alert.alert("Error", "Failed to load portfolio data.");
+    const fetchData = async() => {
+      setLoading(true);
+      try{
+        await loadUserHoldings();
+        await loadTransactionHistory();
+        await loadWatchListStocks();
+        await loadBalance();
       } finally {
         setLoading(false);
       }
-    };
+    }
   
     fetchData();
 
   }, []);
 
-  useEffect(() => {
-    if (holdings.length > 0) {
-      const topHolding = holdings[0]; // or sort by quantity to get top
-      fetchPerformance(topHolding.id);
-    } else {
-      setPerformanceData([]);
-    }
+  useEffect( () => {
+    loadCompanyPerformance();
   }, [holdings]);
 
-  const fetchPerformance = async (companyId) => {
-    try {
-      if (!companyId) {
-        setPerformanceData([]);
-        return;
-      }
+  const loadUserHoldings = async() => {
+    try{
+      const data = await fetchUserHoldings();
+      setHoldings(data.stocks);
+    } catch (error) {
+      Alert.alert("Error", "Could not load holdings", error);
+    }
+  }
+
+  const loadTransactionHistory = async() => {
+    try{
+      const data = await fetchTransactionHistory();
+      setTransactions(data);
+    } catch (error){
+      Alert.alert("Error", "Could not load Recent Activities", error);
+    }
+  }
+
+  const loadWatchListStocks = async() => {
+    try{
+      const data = await fetchIPOCompanies();
+
+    const sortedByVolume = (data.companies || [])
+          .filter(c => c.volume !== null) // ignore if volume is missing
+          .sort((a, b) => b.volume - a.volume)
+          .slice(0, 5);
   
-      const token = await AsyncStorage.getItem('accessToken');
-      const headers = { Authorization: `Bearer ${token}` };
-  
-      const res = await fetch(`${API_BASE}/stock/${companyId}/graph?timeframe=1m`, { headers });
-      const data = await res.json();
-  
+        setWatchlist(sortedByVolume);
+    } catch (error) {
+      Alert.alert("Error", "Could not load Watchlists", error)
+    } 
+  }
+
+  const loadCompanyPerformance = async() => {
+    if (holdings.length > 0) {
+      const topHolding = holdings[0];
+      const data = await fetchCompanyPerformance(topHolding.id);
+
       if (data && data.length > 0) {
         setPerformanceData(data.map(point => point.price)); // Extract prices
         setPerformanceLabels(data.map(point => point.date)); // Extract dates
       } else {
         setPerformanceData([]);
       }
-    } catch (err) {
+    } else {
       setPerformanceData([]);
     }
-  };
+  }
+
+  const loadBalance = async () => {
+      try {
+        const data = await fetchUserBalance();
+        setBalance(data.balance);
+      } catch (error) {
+        Alert.alert("Error", "Could not load balance");
+      }
+    };
   
   const handleDeposit = async () => {
     const token = await AsyncStorage.getItem('accessToken');
@@ -268,8 +273,8 @@ const PortfolioScreen = () => {
           <Text style={styles.tableCell}>
             {holding.quantity * holding.company.currentPrice} ETB
           </Text>
-          <Text style={[styles.tableCell, { color: holding.company.change >= 0 ? 'green' : 'red' }]}>
-            {holding.company.changePercent}%
+          <Text style={[styles.tableCell, { color: 'green'}]}>
+            5%
           </Text>
         </View>
       ))}

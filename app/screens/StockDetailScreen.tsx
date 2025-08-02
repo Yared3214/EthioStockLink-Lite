@@ -18,28 +18,33 @@ const StockDetailScreen = () => {
   const screenWidth = Dimensions.get('window').width;
   const navigation = useNavigation();
 
-const chartConfig = {
-  backgroundGradientFrom: "#1E1E1E",
-  backgroundGradientTo: "#1E1E1E",
-  color: (opacity = 1) => `rgba(0, 255, 163, ${opacity})`,
-  labelColor: () => "#ccc",
-  strokeWidth: 2,
-  propsForDots: {
-    r: "3",
-    strokeWidth: "1",
-    stroke: "#00FFA3",
-  },
-};
-
-const data = {
-  labels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-  datasets: [
-    {
-      data: [300, 320, 340, 310, 350],
-      color: (opacity = 1) => `rgba(0, 255, 163, ${opacity})`,
+  const chartConfig = {
+    backgroundGradientFrom: "#0A0F2C", // deep navy
+    backgroundGradientTo: "#0A0F2C",
+    color: (opacity = 1) => `rgba(0, 255, 163, ${opacity})`,
+    strokeWidth: 2,
+    propsForDots: {
+      r: "0", // Hide dots
     },
-  ],
-};
+    propsForBackgroundLines: {
+      strokeWidth: 0, // Remove grid lines
+    },
+    fillShadowGradientFrom: "#00FFA3",
+    fillShadowGradientTo: "#0A0F2C",
+    fillShadowGradientFromOpacity: 0.3,
+    fillShadowGradientToOpacity: 0,
+    decimalPlaces: 2,
+    labelColor: () => "#888", // label text
+  };
+  
+  const data = {
+    datasets: [
+      {
+        data: [330, 340.31, 310, 335],
+        color: (opacity = 1) => `rgba(0, 255, 163, ${opacity})`,
+      },
+    ],
+  };
 
     useEffect(() => {
       const fetchCompany = async () => {
@@ -106,18 +111,23 @@ const data = {
 
         {/* Chart */}
         <View>
-      <LineChart
-        data={data}
-        width={screenWidth - 32}
-        height={220}
-        chartConfig={chartConfig}
-        bezier
-        style={{
-          marginVertical: 8,
-          borderRadius: 16,
-          alignSelf: 'center',
-        }}
-      />
+        <LineChart
+  data={data}
+  width={screenWidth - 32}
+  height={220}
+  chartConfig={chartConfig}
+  bezier
+  withInnerLines={false}
+  withOuterLines={false}
+  withDots={false}
+  withVerticalLabels={true}
+  withHorizontalLabels={false}
+  style={{
+    marginVertical: 8,
+    borderRadius: 16,
+    alignSelf: 'center',
+  }}
+/>
     </View>
 
         {/* Tabs */}
@@ -216,16 +226,16 @@ const data = {
 
 
         {/* Exchange Button */}
+        <TouchableOpacity onPress={() => navigation.navigate('trade-detail', { company: companyData})}>
         <LinearGradient
           colors={['#00FFA3', '#0085FF']}
           style={styles.exchangeBtn}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <TouchableOpacity>
             <Text style={styles.exchangeText}>Exchange</Text>
-          </TouchableOpacity>
         </LinearGradient>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

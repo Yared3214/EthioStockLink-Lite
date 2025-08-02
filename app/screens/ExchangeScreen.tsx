@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
+import { fetchIPOCompanies } from '@/api/services';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useIpoCompanies } from '../hooks/useIpoCompanies';
 
 interface Company {
   id: string;
@@ -12,8 +11,26 @@ interface Company {
 }
 
 export default function ExchangeScreen() {
-  const { companies, loading, error } = useIpoCompanies();
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigation = useNavigation();
+
+  useEffect(() => {
+    loadIPOCompanies();
+  },[]);
+
+  const loadIPOCompanies = async() => {
+      try{
+        const data = await fetchIPOCompanies();
+  
+      setCompanies(data.companies || []);
+      } catch (err: any) {
+        setError(err.message || "Unknown error");
+      } finally {
+        setLoading(false);
+      } 
+    }
 
   const renderItem = ({ item }: { item: Company }) => (
     <View style={styles.card}>
@@ -31,12 +48,7 @@ export default function ExchangeScreen() {
         >
           <TouchableOpacity
             style={styles.exchangeButton}
-            onPress={() => navigation.navigate('trade-detail', { 
-              companyId: item.id, 
-              price: item.currentPrice, 
-              minStockAmount: item.minimumStockAmount,
-              symbol: item.symbol,
-              })}
+            onPress={() => navigation.navigate('trade-detail', { company: item })}
           >
             <Text style={styles.buttonText}>Exchange</Text>
           </TouchableOpacity>
@@ -66,8 +78,6 @@ export default function ExchangeScreen() {
           <Text style={styles.tradeText}>Trade</Text>
         </LinearGradient>
         <View style={{ flex: 1 }} />
-        <Ionicons name="search-outline" size={20} color="#fff" style={{ marginRight: 16 }} />
-        <Ionicons name="language-outline" size={20} color="#fff" />
       </View>
 
       {/* Loading State */}

@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { fetchIPOCompanies, fetchUserBalance } from "@/api/services";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { useIpoCompanies } from "../hooks/useIpoCompanies";
 
 
 
@@ -39,34 +38,39 @@ export default function IPOScreen({ navigation }: any) {
   const [slideAnim] = useState(new Animated.Value(300)); // start off-screen
   const [popupVisible, setPopupVisible] = useState(false);
   const [company, setCompany] = useState({});
-  const { companies, loading, error } = useIpoCompanies();
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [buyPrice, setBuyPrice] = useState(0);
   const [shares, setShares] = useState(1);
   const [balance, setBalance] = useState(0);
   const [buyLoading, SetBuyLoading] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = await AsyncStorage.getItem('accessToken');
-        const headers = { Authorization: `Bearer ${token}` };
-        console.log(token)
-        
-        const balanceRes = await fetch('https://ethiostocklink-lite-1.onrender.com/api/user/balance', { headers });
-  
-        const balanceData = await balanceRes.json();
-        setBalance(balanceData)
-  
-        setBalance(balanceData.balance);
-      } catch (error) {
-        Alert.alert("Error", "Failed to fetch balance data.");
-      } finally {
-      }
-    };
-  
-    fetchData();
-
+    loadBalance();
+    loadIPOCompanies();
   }, []);
+
+  const loadBalance = async () => {
+    try {
+      const data = await fetchUserBalance();
+      setBalance(data.balance);
+    } catch (error) {
+      Alert.alert("Error", "Could not load balance");
+    }
+  };
+
+  const loadIPOCompanies = async() => {
+    try{
+      const data = await fetchIPOCompanies();
+
+    setCompanies(data.companies || []);
+    } catch (err: any) {
+      setError(err.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    } 
+  }
 
   const increaseShares = () => setShares(shares + 1);
   const decreaseShares = () => setShares(shares > 1 ? shares - 1 : 1);
@@ -170,13 +174,6 @@ export default function IPOScreen({ navigation }: any) {
           <Text style={styles.ipoText}>IPO</Text>
         </LinearGradient>
         <View style={{ flex: 1 }} />
-        <Ionicons
-          name="search-outline"
-          size={20}
-          color="#fff"
-          style={{ marginRight: 16 }}
-        />
-        <Ionicons name="language-outline" size={20} color="#fff" />
       </View>
 
       <Text style={styles.heading}>Open IPOs — Join Before They Close!</Text>
@@ -234,7 +231,7 @@ export default function IPOScreen({ navigation }: any) {
 
       <View style={styles.quickInfo}>
         <Text style={styles.quickInfoText}>Available balance: {balance}</Text>
-        <Text style={styles.quickInfoText}>Shares owned: 0</Text>
+        {/* <Text style={styles.quickInfoText}>Shares owned: 0</Text> */}
       </View>
 
       <TouchableOpacity

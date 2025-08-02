@@ -7,10 +7,9 @@ import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, StyleSheet, Te
 
 export default function TradeDetailsScreen() {
   const route = useRoute();
-  const { companyId, price, minStockAmount, symbol } = route.params || {};
-
-  const [buyPrice, setBuyPrice] = useState("120");
-  const [sellPrice, setSellPrice] = useState("400");
+  const { company } = route.params || {}; 
+  // const [buyPrice, setBuyPrice] = useState("120");
+  // const [sellPrice, setSellPrice] = useState("400");
   const [shares, setShares] = useState(20);
   const [active, setActive] = useState('buy');
   const [modalVisible, setModalVisible] = useState(false);
@@ -26,7 +25,7 @@ export default function TradeDetailsScreen() {
         const token = await AsyncStorage.getItem('accessToken');
         const headers = { Authorization: `Bearer ${token}` };
 
-        const response = await fetch(`https://ethiostocklink-lite-1.onrender.com/api/tread/orderbook/${companyId}`, { headers });
+        const response = await fetch(`https://ethiostocklink-lite-1.onrender.com/api/tread/orderbook/${company.id}`, { headers });
         const data = await response.json();
 
         // Merge and format bids and asks
@@ -52,15 +51,16 @@ export default function TradeDetailsScreen() {
         ];
 
         setStockData(formattedOrders);
-      } catch (err: any) {
-        setError('Failed to fetch order book');
+      } catch (err) {
+        setError('Failed to fetch order book', err);
+        console.log('Failed to fetch order book', err)
       } finally {
         setLoading(false);
       }
     };
 
     fetchOrderBook();
-  }, [companyId]);
+  }, [company.id]);
 
   const increaseShares = () => setShares(shares + 1);
   const decreaseShares = () => setShares(shares > 1 ? shares - 1 : 1);
@@ -78,10 +78,10 @@ export default function TradeDetailsScreen() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          companyId: companyId,
+          companyId: company.id,
           quantity: shares,
           type,
-          price: price, // Or a custom price field
+          price: company.currentPrice, // Or a custom price field
         }),
       });
   
@@ -102,7 +102,7 @@ export default function TradeDetailsScreen() {
   const confirmOrder = (type: 'BUY' | 'SELL') => {
     Alert.alert(
       `Confirm ${type} Order`,
-      `Do you want to place a ${type.toLowerCase()} order for ${shares} shares of ${symbol}?`,
+      `Do you want to place a ${type.toLowerCase()} order for ${shares} shares of ${company.symbol}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: `Place Order`, onPress: () => placeOrder(type) },
@@ -137,8 +137,8 @@ export default function TradeDetailsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>EthioTech Ltd.</Text>
-        <Text style={styles.ticker}>ETL</Text>
+        <Text style={styles.companyName}>{company.name}</Text>
+        <Text style={styles.ticker}>{company.symbol}</Text>
         <Ionicons name="search" size={20} color="#fff" style={styles.searchIcon} />
       </View>
       {stockData.length === 0 ?
@@ -210,7 +210,7 @@ export default function TradeDetailsScreen() {
     <View style={styles.modalContent}>
       {/* Buy/Sell toggle header */}
       <View style={styles.buySellContainer}>
-        {active === 'sell' ? (
+        {/* {active === 'sell' ? (
           <TouchableOpacity style={styles.sellButton} onPress={() => setActive('buy')}>
             <Text style={styles.buySellText}>Buy</Text>
           </TouchableOpacity>
@@ -223,9 +223,9 @@ export default function TradeDetailsScreen() {
           >
             <Text style={styles.buySellText}>Buy</Text>
           </LinearGradient>
-        )}
+        )} */}
 
-        {active === 'buy' ? (
+        {/* {active === 'buy' ? (
           <TouchableOpacity style={styles.sellButton} onPress={() => setActive('sell')}>
             <Text style={styles.buySellText}>Sell</Text>
           </TouchableOpacity>
@@ -238,16 +238,16 @@ export default function TradeDetailsScreen() {
           >
             <Text style={styles.buySellText}>Sell</Text>
           </LinearGradient>
-        )}
+        )} */}
       </View>
 
       {/* Conditional rendering for Buy or Sell content */}
       {active === 'buy' ? (
         <View style={styles.buySection}>
-          <Text style={styles.buyTitle}>Buy ETL?</Text>
+          <Text style={styles.buyTitle}>Buy {company.name}</Text>
           <Text style={styles.label}>PRICE</Text>
-          <Text style={styles.input}>{price}</Text>
-          <Text style={styles.minPrice}>Minimum Shares : {minStockAmount}</Text>
+          <Text style={styles.input}>{company.currentPrice}</Text>
+          <Text style={styles.minPrice}>Minimum Shares : {company.minimumStockAmount}</Text>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <View style={styles.sharesContainer}>
@@ -266,7 +266,7 @@ export default function TradeDetailsScreen() {
             </View>
             <View>
               <Text style={styles.label}>TOTAL PRICE</Text>
-              <Text style={styles.totalPrice}>{(price * shares).toFixed(2)} ETB</Text>
+              <Text style={styles.totalPrice}>{(company.currentPrice * shares).toFixed(2)} ETB</Text>
             </View>
           </View>
 
@@ -294,11 +294,11 @@ export default function TradeDetailsScreen() {
       ) : (
         // You can insert the Sell Section here
         <View style={styles.sellSection}>
-        <Text style={styles.buyTitle}>Sell ETL?</Text>
+        <Text style={styles.buyTitle}>Sell {company.name}</Text>
 
         <Text style={styles.label}>PRICE</Text>
-        <Text style={styles.input}>{price}</Text>
-        <Text style={styles.minPrice}>Minimum Shares : {minStockAmount}</Text>
+        <Text style={styles.input}>{company.currentPrice}</Text>
+        <Text style={styles.minPrice}>Minimum Shares : {company.minimumStockAmount}</Text>
 
         <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16,}}>
         <View style={styles.sharesContainer}>
@@ -317,7 +317,7 @@ export default function TradeDetailsScreen() {
         </View>
         <View>
             <Text style={styles.label}>TOTAL PRICE</Text>
-            <Text style={styles.totalPrice}>{(price * shares).toFixed(2)} ETB</Text>
+            <Text style={styles.totalPrice}>{(company.currentPrice * shares).toFixed(2)} ETB</Text>
           </View>
         </View>
 
