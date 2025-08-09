@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Dimensions, Easing, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { LineChart } from 'react-native-chart-kit';
+import { deleteItem } from '../utils/secureStore';
 
 const API_BASE = 'https://ethiostocklink-lite-1.onrender.com/api';
 
@@ -183,8 +184,8 @@ const PortfolioScreen = () => {
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('accessToken');
-      await AsyncStorage.removeItem('refreshToken');
+      await deleteItem('accessToken');
+      await deleteItem('refreshToken');
       router.replace('/(auth)/LoginScreen');
     } catch (error) {
       Alert.alert("Logout Failed", "Could not log out. Please try again.");

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { saveItem } from '../utils/secureStore';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -59,8 +60,8 @@ export default function LoginScreen() {
       }
   
       const { accessToken, refreshToken } = data;
-      await AsyncStorage.setItem('accessToken', accessToken);
-      await AsyncStorage.setItem('refreshToken', refreshToken);
+      await saveItem('accessToken', accessToken);
+      await saveItem('refreshToken', refreshToken);
   
       router.replace('/');
     } catch (error) {

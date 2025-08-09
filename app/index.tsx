@@ -3,6 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { getItem } from "./utils/secureStore";
 
 export default function Index() {
   const router = useRouter()
@@ -12,7 +13,8 @@ export default function Index() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = await AsyncStorage.getItem('accessToken');
+        const token = await getItem('accessToken');
+
         if (token) {
           // Token exists: navigate to home/dashboard
           router.replace('/navigation/BottomTabNavigationBar')
@@ -37,18 +39,5 @@ export default function Index() {
       </View>
     );
   }
-
   return null;
-  // (
-  // <View
-  //     style={{
-  //       flex: 1,
-  //       // marginBottom: 40
-  //       // justifyContent: "center",
-  //       // alignItems: "center",
-  //     }}
-  //   >
-  //     <LoginSignupStackScreen/>
-  //   </View>
-  // );
 }

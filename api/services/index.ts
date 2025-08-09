@@ -1,9 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem } from '@/app/utils/secureStore';
 
 const API_BASE = 'https://ethiostocklink-lite-1.onrender.com/api';
 
 const getAuthHeaders = async () => {
-  const token = await AsyncStorage.getItem('accessToken');
+  const token = await getItem('accessToken');
+
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
